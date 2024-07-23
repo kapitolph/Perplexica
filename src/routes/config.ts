@@ -8,6 +8,7 @@ import {
   getOllamaApiEndpoint,
   getAnthropicApiKey,
   getOpenaiApiKey,
+  updateConfig,
 } from '../config';
 
 const router = express.Router();
@@ -56,6 +57,8 @@ router.post('/', async (req, res) => {
       OLLAMA: config.ollamaApiUrl,
     },
   };
+
+  updateConfig(updatedConfig);
 
   res.status(200).json({ message: 'Config updated' });
 });
