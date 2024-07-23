@@ -1,17 +1,23 @@
 {
   "name": "Perplexica Development Environment",
-  "dockerComposeFile": "../docker-compose.yaml",
-  "service": "perplexica-backend",
+  "image": "mcr.microsoft.com/vscode/devcontainers/universal:latest",
   "workspaceFolder": "/workspace",
-  "settings": {
-    "terminal.integrated.shell.linux": "/bin/bash"
+  "remoteUser": "root",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },
-  "extensions": [
-    "ms-python.python",
-    "ms-azuretools.vscode-docker"
-  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-azuretools.vscode-docker"
+      ]
+    },
+    "settings": {
+      "terminal.integrated.shell.linux": "/bin/bash"
+    }
+  },
   "forwardPorts": [3000, 3001, 4000, 7700],
-  "postCreateCommand": "pip install -r requirements.txt",
   "remoteEnv": {
     "PORT": "3001",
     "SIMILARITY_MEASURE": "cosine",
