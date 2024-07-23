@@ -17,14 +17,5 @@
       "terminal.integrated.shell.linux": "/bin/bash"
     }
   },
-  "forwardPorts": [3000, 3001, 4000, 7700],
-  "remoteEnv": {
-    "PORT": "3001",
-    "SIMILARITY_MEASURE": "cosine",
-    "OPENAI_API_KEY": "",
-    "GROQ_API_KEY": "",
-    "ANTHROPIC_API_KEY": "",
-    "SEARXNG_API_URL": "http://localhost:32768",
-    "OLLAMA_API_URL": ""
-  }
+  "forwardPorts": [3000, 3001, 4000, 7700]
 }
