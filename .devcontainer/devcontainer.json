@@ -1,6 +1,6 @@
 {
   "name": "Perplexica Development Environment",
-  "dockerComposeFile": "../docker-compose.yml",
+  "dockerComposeFile": "../docker-compose.yaml",
   "service": "perplexica-backend",
   "workspaceFolder": "/workspace",
   "settings": {
