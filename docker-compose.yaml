@@ -1,3 +1,5 @@
+version: '3'
+
 services:
   searxng:
     image: docker.io/searxng/searxng:latest
@@ -5,6 +7,18 @@ services:
       - ./searxng:/etc/searxng:rw
     ports:
       - 4000:8080
+    networks:
+      - perplexica-network
+    restart: unless-stopped
+    environment:
+      - MEILISEARCH_URL=http://meilisearch:7700
+
+  meilisearch:
+    image: getmeili/meilisearch:latest
+    volumes:
+      - meilisearch-data:/data.ms
+    ports:
+      - 7700:7700
     networks:
       - perplexica-network
     restart: unless-stopped
@@ -17,10 +31,12 @@ services:
         - SEARXNG_API_URL=http://searxng:8080
     depends_on:
       - searxng
+      - meilisearch
     ports:
       - 3001:3001
     volumes:
       - backend-dbstore:/home/perplexica/data
+      - ./local_files:/workspace/local_files:ro
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     networks:
@@ -47,3 +63,4 @@ networks:
 
 volumes:
   backend-dbstore:
+  meilisearch-data:

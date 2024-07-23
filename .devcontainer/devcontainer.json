@@ -1,0 +1,15 @@
+{
+  "name": "Perplexica Development Environment",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "perplexica-backend",
+  "workspaceFolder": "/workspace",
+  "settings": {
+    "terminal.integrated.shell.linux": "/bin/bash"
+  },
+  "extensions": [
+    "ms-python.python",
+    "ms-azuretools.vscode-docker"
+  ],
+  "forwardPorts": [3000, 3001, 4000, 7700],
+  "postCreateCommand": "pip install -r requirements.txt"
+}
