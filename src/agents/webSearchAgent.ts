@@ -11,28 +11,39 @@ import {
 } from '@langchain/core/runnables';
 import { StringOutputParser } from '@langchain/core/output_parsers';
 import { Document } from '@langchain/core/documents';
-import { searchSearxng } from '../lib/searxng';
 import type { StreamEvent } from '@langchain/core/tracers/log_stream';
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import type { Embeddings } from '@langchain/core/embeddings';
 import formatChatHistoryAsString from '../utils/formatHistory';
 import eventEmitter from 'events';
-import computeSimilarity from '../utils/computeSimilarity';
 import logger from '../utils/logger';
+import { searchWeaviate } from '../lib/weaviate';
 
 const basicSearchRetrieverPrompt = `
-You will be given a conversation below and a follow up question. You need to rephrase the follow-up question if needed so it is a standalone question that can be used by the LLM to search the web for information.
-If it is a writing task or a simple hi, hello rather than a question, you need to return \`not_needed\` as the response.
+You are tasked with rephrasing a follow-up question to optimize it for a web search and subsequent reranking in a RAG application using Cohere. Your goal is to create a query in question format that will yield the most relevant results when used with Cohere's embedding and reranking models.
 
-Example:
-1. Follow up question: What is the capital of France?
-Rephrased: Capital of france
+Guidelines for rephrasing:
+1. Always phrase the query as a clear, concise question.
+2. Focus on key concepts and entities within the question.
+3. Use specific, descriptive terms rather than general ones.
+4. Include important context from the conversation history.
+5. Avoid personal pronouns and conversational language.
+6. Use natural language phrasing that matches how information is likely to be written in authoritative sources.
+7. For complex questions, consider breaking them down into simpler, more focused questions.
+8. If the input is a writing task or a simple greeting (e.g., "hi", "hello"), return "not_needed".
 
-2. Follow up question: What is the population of New York City?
-Rephrased: Population of New York City
+Examples:
+1. Follow up question: What's the capital of France and how many people live there?
+Rephrased: What is the population of Paris, the capital of France?
 
-3. Follow up question: What is Docker?
-Rephrased: What is Docker
+2. Follow up question: Can you tell me about the history and features of Docker?
+Rephrased: What are the key historical milestones and main features of Docker containerization technology?
+
+3. Follow up question: How does climate change affect polar bear populations?
+Rephrased: How is climate change impacting Arctic polar bear habitats and population trends?
+
+4. Follow up question: Write a poem about spring.
+Rephrased: not_needed
 
 Conversation:
 {chat_history}
@@ -52,8 +63,7 @@ const basicWebSearchResponsePrompt = `
     Place these citations at the end of that particular sentence. You can cite the same sentence multiple times if it is relevant to the user's query like [number1][number2].
     However you do not need to cite it using the same number. You can use different numbers to cite the same sentence multiple times. The number refers to the number of the search result (passed in the context) used to generate that part of the answer.
 
-    Anything inside the following \`context\` HTML block provided below is for your knowledge returned by the search engine and is not shared by the user. You have to answer question on the basis of it and cite the relevant information from it but you do not have to
-    talk about the context in your response.
+    Anything inside the following \`context\` HTML block provided below is for your knowledge returned by the search engine and is not shared by the user. You have to answer question on the basis of it and cite the relevant information from it but you do not have to talk about the context in your response.
 
     <context>
     {context}
@@ -108,34 +118,37 @@ const createBasicWebSearchRetrieverChain = (llm: BaseChatModel) => {
     llm,
     strParser,
     RunnableLambda.from(async (input: string) => {
+      logger.info(`Processing retriever input: ${input}`);
       if (input === 'not_needed') {
+        logger.info('Search not needed, returning empty result');
         return { query: '', docs: [] };
       }
 
-      const res = await searchSearxng(input, {
-        language: 'en',
-      });
+      logger.info(`Performing Weaviate search for: ${input}`);
+      const { results } = await searchWeaviate(input);
 
-      const documents = res.results.map(
+      const documents = results.map(
         (result) =>
           new Document({
             pageContent: result.content,
             metadata: {
               title: result.title,
               url: result.url,
-              ...(result.img_src && { img_src: result.img_src }),
+              embedScore: result.embedScore,
+              rerankScore: result.rerankScore,
             },
-          }),
+          })
       );
+      logger.info(`Retrieved ${documents.length} documents from Weaviate`);
 
       return { query: input, docs: documents };
     }),
   ]);
 };
 
+
 const createBasicWebSearchAnsweringChain = (
   llm: BaseChatModel,
-  embeddings: Embeddings,
 ) => {
   const basicWebSearchRetrieverChain = createBasicWebSearchRetrieverChain(llm);
 
@@ -146,10 +159,8 @@ const createBasicWebSearchAnsweringChain = (
   };
 
   const rerankDocs = async ({
-    query,
     docs,
   }: {
-    query: string;
     docs: Document[];
   }) => {
     if (docs.length === 0) {
@@ -160,26 +171,12 @@ const createBasicWebSearchAnsweringChain = (
       (doc) => doc.pageContent && doc.pageContent.length > 0,
     );
 
-    const [docEmbeddings, queryEmbedding] = await Promise.all([
-      embeddings.embedDocuments(docsWithContent.map((doc) => doc.pageContent)),
-      embeddings.embedQuery(query),
-    ]);
+    const sortedDocs = docsWithContent
+      .sort((a, b) => b.metadata.rerankScore - a.metadata.rerankScore)
+      .filter((doc) => doc.metadata.embedScore > 0.2)
+      .slice(0, 20);
 
-    const similarity = docEmbeddings.map((docEmbedding, i) => {
-      const sim = computeSimilarity(queryEmbedding, docEmbedding);
-
-      return {
-        index: i,
-        similarity: sim,
-      };
-    });
-
-    const sortedDocs = similarity
-      .filter((sim) => sim.similarity > 0.5)
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, 15)
-      .map((sim) => docsWithContent[sim.index]);
-
+    logger.info(`Reranked and filtered to ${sortedDocs.length} documents`);
     return sortedDocs;
   };
 
@@ -223,7 +220,6 @@ const basicWebSearch = (
   try {
     const basicWebSearchAnsweringChain = createBasicWebSearchAnsweringChain(
       llm,
-      embeddings,
     );
 
     const stream = basicWebSearchAnsweringChain.streamEvents(

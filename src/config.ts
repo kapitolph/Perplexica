@@ -13,10 +13,12 @@ interface Config {
     OPENAI: string;
     GROQ: string;
     ANTHROPIC: string;
+    HASURA_ADMIN_SECRET: string;
   };
   API_ENDPOINTS: {
     SEARXNG: string;
     OLLAMA: string;
+    HASURA: string;
   };
 }
 
@@ -40,9 +42,13 @@ export const getGroqApiKey = () => loadConfig().API_KEYS.GROQ;
 
 export const getAnthropicApiKey = () => loadConfig().API_KEYS.ANTHROPIC;
 
+export const getHasuraAdminSecret = () => loadConfig().API_KEYS.HASURA_ADMIN_SECRET;
+
 export const getSearxngApiEndpoint = () => loadConfig().API_ENDPOINTS.SEARXNG;
 
 export const getOllamaApiEndpoint = () => loadConfig().API_ENDPOINTS.OLLAMA;
+
+export const getHasuraApiEndpoint = () => loadConfig().API_ENDPOINTS.HASURA;
 
 export const updateConfig = (config: RecursivePartial<Config>) => {
   const currentConfig = loadConfig();
