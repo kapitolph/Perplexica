@@ -49,8 +49,6 @@ export const searchWeaviate = async (
       }
     );
 
-    console.log('Response:', JSON.stringify(res.data, null, 2));
-
     if (res.data.errors) {
       throw new Error(`GraphQL errors: ${JSON.stringify(res.data.errors)}`);
     }
