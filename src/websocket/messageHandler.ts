@@ -10,7 +10,7 @@ import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { Embeddings } from '@langchain/core/embeddings';
 import logger from '../utils/logger';
 import db from '../db';
-import { chats, messages } from '../db/schema';
+import { chats, MessageInsert, messages } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 
@@ -77,11 +77,12 @@ const handleEmitterEvents = (
         chatId: chatId,
         messageId: messageId,
         role: 'assistant',
-        metadata: JSON.stringify({
+        metadata: {
           createdAt: new Date(),
           ...(sources && sources.length > 0 && { sources }),
-        }),
+        },
       })
+      .returning()
       .execute();
   });
   emitter.on('error', (data) => {
@@ -155,20 +156,24 @@ export const handleMessage = async (
               createdAt: new Date().toString(),
               focusMode: parsedWSMessage.focusMode,
             })
+            .returning()
             .execute();
+        }
+
+        const message: MessageInsert = {
+          content: parsedMessage.content,
+          chatId: parsedMessage.chatId,
+          messageId: id,
+          role: 'assistant',
+          metadata: {
+            createdAt: new Date().toISOString(),
+          },
         }
 
         await db
           .insert(messages)
-          .values({
-            content: parsedMessage.content,
-            chatId: parsedMessage.chatId,
-            messageId: id,
-            role: 'user',
-            metadata: JSON.stringify({
-              createdAt: new Date(),
-            }),
-          })
+          .values(message)
+          .returning()
           .execute();
       } else {
         ws.send(
