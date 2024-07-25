@@ -229,7 +229,7 @@ def ingest_documents():
     weaviate_objects = []
 
     for doc in documents:
-        paragraphs = split_into_paragraphs(doc["content"], paragraphs_per_chunk=3, overlap_paragraphs=1)
+        paragraphs = split_into_paragraphs(doc["content"], paragraphs_per_chunk=5, overlap_paragraphs=1)
         for i, chunk in enumerate(paragraphs):
             content_uuid = generate_uuid_from_content(chunk)
             weaviate_object = {
