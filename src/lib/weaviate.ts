@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getHasuraAdminSecret, getHasuraApiEndpoint } from '../config';
+import logger from '../utils/logger';
 
 interface WeaviateSearchResult {
   content: string;
@@ -15,18 +16,19 @@ export const searchWeaviate = async (
   const hasuraURL = getHasuraApiEndpoint();
   const hasuraSecret = getHasuraAdminSecret();
 
+  logger.info(`Connecting to ${hasuraURL}. Query: ${query}`);
+
   const graphqlQuery = `
-    query ComplexSearch($query: String!) {
+    query ComplexSearch {
       Get {
-        Perplexica(
-          hybrid: {query: $query}
-        ) {
+        Perplexica(hybrid: {query: "${query}"}) {
           content
           title
           url
           _additional {
+            distance
             score
-            rerank(query: $query, property: "content") {
+            rerank(query: "${query}", property: "content") {
               score
             }
           }
@@ -35,30 +37,41 @@ export const searchWeaviate = async (
     }
   `;
 
-  const variables = {
-    query,
-  };
+  try {
+    const res = await axios.post(
+      `${hasuraURL}/v1/graphql`,
+      { query: graphqlQuery },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-hasura-admin-secret': hasuraSecret,
+        },
+      }
+    );
 
-  const res = await axios.post(
-    `${hasuraURL}/v1/graphql`,
-    { query: graphqlQuery, variables },
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        'x-hasura-admin-secret': hasuraSecret,
-      },
+    console.log('Response:', JSON.stringify(res.data, null, 2));
+
+    if (res.data.errors) {
+      throw new Error(`GraphQL errors: ${JSON.stringify(res.data.errors)}`);
     }
-  );
 
-  const results: WeaviateSearchResult[] = res.data.data.Get.Perplexica.map(
-    (result: any) => ({
-      content: result.content,
-      title: result.title,
-      url: result.url,
-      embedScore: result._additional.score,
-      rerankScore: result._additional.rerank[0].score,
-    })
-  );
+    if (!res.data || !res.data.data || !res.data.data.Get || !res.data.data.Get.Perplexica) {
+      throw new Error('Unexpected response structure');
+    }
 
-  return { results };
+    const results: WeaviateSearchResult[] = res.data.data.Get.Perplexica.map(
+      (result: any) => ({
+        content: result.content,
+        title: result.title,
+        url: result.url,
+        embedScore: result._additional.score,
+        rerankScore: result._additional.rerank[0].score,
+      })
+    );
+
+    return { results };
+  } catch (error) {
+    console.error('Error in searchWeaviate:', error);
+    throw error;
+  }
 };
