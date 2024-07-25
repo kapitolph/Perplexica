@@ -10,6 +10,15 @@ interface WeaviateSearchResult {
   rerankScore: number;
 }
 
+function sanitizeQuery(query: string): string {
+  // Remove potentially harmful characters
+  const sanitized = query.replace(/['"\\{}\[\]()<>|&;`\n\r\t\x00-\x1F\x7F-\x9F]/g, '');
+  
+  // Trim whitespace
+  return sanitized.trim();
+}
+
+
 export const searchWeaviate = async (
   query: string,
 ) => {
@@ -18,17 +27,19 @@ export const searchWeaviate = async (
 
   logger.info(`Connecting to ${hasuraURL}. Query: ${query}`);
 
+  const safeQuery = sanitizeQuery(query);
+
   const graphqlQuery = `
     query ComplexSearch {
       Get {
-        Perplexica(hybrid: {query: "${query}"}) {
+        Perplexica(hybrid: {query: "${safeQuery}"}) {
           content
           title
           url
           _additional {
             distance
             score
-            rerank(query: "${query}", property: "content") {
+            rerank(query: "${safeQuery}", property: "content") {
               score
             }
           }
