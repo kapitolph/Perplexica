@@ -11,6 +11,8 @@ router.post('/', async (req, res) => {
   try {
     let { chat_history, chat_model, chat_model_provider } = req.body;
 
+    logger.info(`Generating suggestions for chat history: ${chat_history}`);
+
     chat_history = chat_history.map((msg: any) => {
       if (msg.role === 'user') {
         return new HumanMessage(msg.content);
@@ -26,6 +28,7 @@ router.post('/', async (req, res) => {
     let llm: BaseChatModel | undefined;
 
     if (chatModels[provider] && chatModels[provider][chatModel]) {
+      logger.info(`Selected chat model: ${chatModel} from provider: ${provider} for generating suggestions`);
       llm = chatModels[provider][chatModel] as BaseChatModel | undefined;
     }
 
