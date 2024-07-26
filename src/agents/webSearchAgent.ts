@@ -176,8 +176,8 @@ const createBasicWebSearchAnsweringChain = (
 
     const sortedDocs = docsWithContent
       .sort((a, b) => b.metadata.rerankScore - a.metadata.rerankScore)
-      .filter((doc) => doc.metadata.embedScore > 0.2)
-      .slice(0, 20);
+      .filter((doc) => doc.metadata.embedScore > 0.3)
+      .slice(0, 5);
 
     logger.info(`Reranked and filtered to ${sortedDocs.length} documents`);
     return sortedDocs;
