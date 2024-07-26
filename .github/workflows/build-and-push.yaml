@@ -107,4 +107,4 @@ jobs:
           push: true
           file: ./backend.dockerfile
           tags: ${{ env.REGISTRY }}/backend:${{ env.SHORT_SHA }}
-          build-args: 'SEARXNG_API_URL=${{ secrets.SEARXNG }},ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}'
+          build-args: 'SEARXNG_API_URL=${{ secrets.SEARXNG }},ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }},HASURA_ADMIN_SECRET=${{ secrets.HASURA_ADMIN_SECRET }},HASURA_ENDPOINT=${{ secrets.HASURA_ENDPOINT }}'
