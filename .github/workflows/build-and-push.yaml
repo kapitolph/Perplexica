@@ -72,6 +72,7 @@ jobs:
           push: true
           file: ./app.dockerfile
           tags: ${{ env.REGISTRY }}/frontend:${{ env.SHORT_SHA }}
+          build-args: 'NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}'
 
   build-backend:
     if: github.event_name == 'workflow_dispatch'
@@ -108,3 +109,4 @@ jobs:
           push: true
           file: ./backend.dockerfile
           tags: ${{ env.REGISTRY }}/backend:${{ env.SHORT_SHA }}
+          build-args: 'SEARXNG_API_URL=${{ secrets.SEARXNG }},ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}'
