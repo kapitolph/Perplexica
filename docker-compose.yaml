@@ -23,8 +23,8 @@ services:
       context: .
       dockerfile: app.dockerfile
       args:
-        - NEXT_PUBLIC_API_URL=http://127.0.0.1:3001/api
-        - NEXT_PUBLIC_WS_URL=ws://127.0.0.1:3001
+        - NEXT_PUBLIC_API_URL=https://vigilant-eureka-qvrgqjr7rqqfxjqq-3001.app.github.dev/api
+        - NEXT_PUBLIC_WS_URL=ws://vigilant-eureka-qvrgqjr7rqqfxjqq-3001.app.github.dev/
     depends_on:
       - perplexica-backend
     ports:
