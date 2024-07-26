@@ -426,15 +426,15 @@ const ChatWindow = ({ id }: { id?: string }) => {
           lastMsg.sources.length > 0 &&
           !lastMsg.suggestions
         ) {
-          const suggestions = await getSuggestions(messagesRef.current);
-          setMessages((prev) =>
-            prev.map((msg) => {
-              if (msg.messageId === lastMsg.messageId) {
-                return { ...msg, suggestions: suggestions };
-              }
-              return msg;
-            }),
-          );
+          // const suggestions = await getSuggestions(messagesRef.current);
+          // setMessages((prev) =>
+          //   prev.map((msg) => {
+          //     if (msg.messageId === lastMsg.messageId) {
+          //       return { ...msg, suggestions: suggestions };
+          //     }
+          //     return msg;
+          //   }),
+          // );
         }
       }
     };
