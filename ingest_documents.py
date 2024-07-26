@@ -82,15 +82,18 @@ def fetch_documents_from_hasura():
 def create_weaviate_schema():
     schema = {
         "class": CLASS_NAME,
-        "vectorizer": "text2vec-aws",
+        "vectorizer": "text2vec-openai",
         "moduleConfig": {
-            "text2vec-aws": {
-                "model": "cohere.embed-english-v3",
-                "region": "ap-southeast-1",
-                "service": "bedrock",
-                "truncate": "END",
-                "input_type": "search_document"
-            },
+            # "text2vec-aws": {
+            #     "model": "cohere.embed-english-v3",
+            #     "region": "ap-southeast-1",
+            #     "service": "bedrock",
+            #     "truncate": "END",
+            #     "input_type": "search_document"
+            # },
+            "model": "text-embedding-3-large",
+            "dimensions": "3072",
+            "type": "text",
             "reranker-cohere": {
                 "model": "rerank-english-v3.0"
             }
@@ -121,7 +124,7 @@ def create_weaviate_schema():
                 "name": "url",
                 "dataType": ["string"],
                 "description": "The URL of the document",
-                "text2vec-aws": {
+                "text2vec-openai": {
                     "skip": "true",
                     "vectorizePropertyName": "false"
                 }
@@ -130,7 +133,7 @@ def create_weaviate_schema():
                 "name": "paragraph_number",
                 "dataType": ["int"],
                 "description": "The paragraph number within the document",
-                "text2vec-aws": {
+                "text2vec-openai": {
                     "skip": "true",
                     "vectorizePropertyName": "false"
                 }
@@ -139,7 +142,7 @@ def create_weaviate_schema():
                 "name": "document_id",
                 "dataType": ["int"],
                 "description": "The original document ID from Hasura",
-                "text2vec-aws": {
+                "text2vec-openai": {
                     "skip": "true",
                     "vectorizePropertyName": "false"
                 }
@@ -201,17 +204,23 @@ def search_weaviate(query):
     }
     return make_request(search_url, 'POST', data=search_query, headers=WEAVIATE_HEADERS)
 
-def split_into_paragraphs(content, paragraphs_per_chunk=4, overlap_paragraphs=1, min_length=50):
-    # Split the content into paragraphs
-    paragraphs = [p.strip() for p in content.split('\n\n') if len(p.strip()) >= min_length]
+import re
+
+def split_into_paragraphs(content, sentences_per_chunk=5, overlap_sentences=1, min_length=50):
+    # Remove leading/trailing whitespace and split into sentences
+    content = content.strip()
+    sentences = re.split(r'(?<=[.!?])\s+', content)
     
     chunks = []
-    for i in range(0, len(paragraphs), paragraphs_per_chunk - overlap_paragraphs):
-        chunk = paragraphs[i:i + paragraphs_per_chunk]
+    for i in range(0, len(sentences), sentences_per_chunk - overlap_sentences):
+        chunk = sentences[i:i + sentences_per_chunk]
         if chunk:
-            chunks.append('\n\n'.join(chunk))
+            chunk_text = ' '.join(chunk)
+            if len(chunk_text) >= min_length:
+                chunks.append(chunk_text)
     
     return chunks
+
 
 def ingest_documents():
     # Fetch documents from Hasura
@@ -229,23 +238,20 @@ def ingest_documents():
     weaviate_objects = []
 
     for doc in documents:
-        paragraphs = split_into_paragraphs(doc["content"], paragraphs_per_chunk=5, overlap_paragraphs=1)
-        for i, chunk in enumerate(paragraphs):
-            content_uuid = generate_uuid_from_content(chunk)
-            weaviate_object = {
-                "class": CLASS_NAME,
-                "id": content_uuid,
-                "properties": {
-                    "title": doc["title"],
-                    "module": doc["module"],
-                    "section": doc["section"],
-                    "content": chunk,
-                    "url": doc["url"],
-                    "chunk_number": i + 1,
-                    "document_id": doc["id"]
-                }
+        content_uuid = generate_uuid_from_content(doc["content"])
+        weaviate_object = {
+            "class": CLASS_NAME,
+            "id": content_uuid,
+            "properties": {
+                "title": doc["title"],
+                "module": doc["module"],
+                "section": doc["section"],
+                "content": doc["content"],
+                "url": doc["url"],
+                "document_id": doc["id"]
             }
-            weaviate_objects.append(weaviate_object)
+        }
+        weaviate_objects.append(weaviate_object)
 
         if len(weaviate_objects) >= batch_size:
             print(f"Attempting to add {len(weaviate_objects)} objects to Weaviate")
