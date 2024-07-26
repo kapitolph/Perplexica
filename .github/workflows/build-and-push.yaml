@@ -1,0 +1,110 @@
+name: Build Perplexica Servers
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - 'app.dockerfile'
+      - 'backend.dockerfile'
+      - 'tsconfig.json'
+      - 'config.toml'
+      - 'drizzle.config.ts'
+      - 'package.json'
+      - 'yarn.lock'
+      - 'src/**'
+      - 'ui/**'
+      - '.github/**'
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: perplexica-build
+  cancel-in-progress: true
+
+jobs:
+  generate-short-sha:
+    name: Generate Short SHA
+    runs-on: ubuntu-latest
+    outputs:
+      short_sha: ${{ env.SHORT_SHA }}
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+      - name: Generate short sha
+        uses: ./.github/actions/generate-short-sha
+
+  build-frontend:
+    if: github.event_name == 'workflow_dispatch'
+    name: Build Frontend
+    needs: [generate-short-sha]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    env:
+      REGISTRY: 'ghcr.io/kapitolph/perplexica'
+      SERVICE_ACCOUNT_USERNAME: ${{ vars.SERVICE_ACCOUNT_USERNAME }}
+      REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+      SHORT_SHA: ${{ needs.generate-short-sha.outputs.short_sha }}
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+      - name: Log in to the Container registry
+        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.SERVICE_ACCOUNT_USERNAME }}
+          password: ${{ env.REGISTRY_TOKEN }}
+      - name: Set up Depot CLI
+        uses: depot/setup-action@v1
+      - name: Run docker build and push
+        uses: depot/build-push-action@v1
+        with:
+          project: ${{ vars.DEPOT_PROJECT_ID }}
+          context: .
+          platforms: 'linux/amd64,linux/arm64'
+          push: true
+          file: ./app.dockerfile
+          tags: ${{ env.REGISTRY }}/frontend:${{ env.SHORT_SHA }}
+
+  build-backend:
+    if: github.event_name == 'workflow_dispatch'
+    name: Build Backend
+    needs: [generate-short-sha]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    env:
+      REGISTRY: 'ghcr.io/kapitolph/perplexica'
+      SERVICE_ACCOUNT_USERNAME: ${{ vars.SERVICE_ACCOUNT_USERNAME }}
+      REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+      SHORT_SHA: ${{ needs.generate-short-sha.outputs.short_sha }}
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+      - name: Log in to the Container registry
+        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.SERVICE_ACCOUNT_USERNAME }}
+          password: ${{ env.REGISTRY_TOKEN }}
+      - name: Set up Depot CLI
+        uses: depot/setup-action@v1
+      - name: Run docker build and push
+        uses: depot/build-push-action@v1
+        with:
+          project: ${{ vars.DEPOT_PROJECT_ID }}
+          context: .
+          platforms: 'linux/amd64,linux/arm64'
+          push: true
+          file: ./backend.dockerfile
+          tags: ${{ env.REGISTRY }}/backend:${{ env.SHORT_SHA }}
