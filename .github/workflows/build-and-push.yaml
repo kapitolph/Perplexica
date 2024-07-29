@@ -91,7 +91,7 @@ jobs:
 
   approve-deployment:
     name: Approve Deployment
-    needs: [build-backend]
+    needs: [build-backend, build-frontend]
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -114,4 +114,22 @@ jobs:
         with:
           workflow_ids: '118'
           docker_image: ${{ env.REGISTRY }}/backend:${{ env.SHORT_SHA }}
+          devtron_cli_token: ${{ secrets.DEVTRON_TOKEN }}
+
+  deploy-frontend:
+    name: Deploy Perplexica Frontend
+    needs: [approve-deployment, generate-short-sha]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      REGISTRY: 'ghcr.io/kapitolph/perplexica'
+      SHORT_SHA: ${{ needs.generate-short-sha.outputs.short_sha }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Deploy Perplexica Frontend
+        uses: ./.github/actions/devtron-container-deploy
+        with:
+          workflow_ids: '119'
+          docker_image: ${{ env.REGISTRY }}/frontend:${{ env.SHORT_SHA }}
           devtron_cli_token: ${{ secrets.DEVTRON_TOKEN }}
