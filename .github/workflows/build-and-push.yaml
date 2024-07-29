@@ -54,23 +54,13 @@ jobs:
     steps:
       - name: Check out repo
         uses: actions/checkout@v4
-      - name: Log in to the Container registry
-        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+      - name: Build frontend
+        uses: ./.github/actions/docker-build
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ env.SERVICE_ACCOUNT_USERNAME }}
-          password: ${{ env.REGISTRY_TOKEN }}
-      - name: Set up Depot CLI
-        uses: depot/setup-action@v1
-      - name: Run docker build and push
-        uses: depot/build-push-action@v1
-        with:
-          project: ${{ vars.DEPOT_PROJECT_ID }}
-          context: .
-          platforms: 'linux/amd64,linux/arm64'
-          push: true
-          file: ./app.dockerfile
-          tags: ${{ env.REGISTRY }}/frontend:${{ env.SHORT_SHA }}
+          depot_project_id: ${{ vars.DEPOT_PROJECT_ID }}
+          build_context: .
+          dockerfile_path: ./app.dockerfile
+          image_tags: ${{ env.REGISTRY }}/frontend:${{ env.SHORT_SHA }}
           build-args: 'NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}'
 
   build-backend:
@@ -90,21 +80,38 @@ jobs:
     steps:
       - name: Check out repo
         uses: actions/checkout@v4
-      - name: Log in to the Container registry
-        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+      - name: Build backend
+        uses: ./.github/actions/docker-build
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ env.SERVICE_ACCOUNT_USERNAME }}
-          password: ${{ env.REGISTRY_TOKEN }}
-      - name: Set up Depot CLI
-        uses: depot/setup-action@v1
-      - name: Run docker build and push
-        uses: depot/build-push-action@v1
+          depot_project_id: ${{ vars.DEPOT_PROJECT_ID }}
+          build_context: .
+          dockerfile_path: ./backend.dockerfile
+          image_tags: ${{ env.REGISTRY }}/backend:${{ env.SHORT_SHA }}
+          build-args: 'ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }},HASURA_ADMIN_SECRET=${{ secrets.HASURA_ADMIN_SECRET }},HASURA_ENDPOINT=${{ secrets.HASURA_ENDPOINT }}'
+
+approve-deployment:
+    name: Approve Deployment
+    needs: [build-backend]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - run: |
+          echo "DEPLOYMENT TO PRODUCTION APPROVED"
+
+  deploy-backend:
+    name: Deploy Perplexica Backend
+    needs: [approve-deployment, generate-short-sha]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      REGISTRY: 'ghcr.io/kapitolph/perplexica'
+      SHORT_SHA: ${{ needs.generate-short-sha.outputs.short_sha }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Deploy Perplexica Backend
+        uses: ./.github/actions/devtron-container-deploy
         with:
-          project: ${{ vars.DEPOT_PROJECT_ID }}
-          context: .
-          platforms: 'linux/amd64,linux/arm64'
-          push: true
-          file: ./backend.dockerfile
-          tags: ${{ env.REGISTRY }}/backend:${{ env.SHORT_SHA }}
-          build-args: 'SEARXNG_API_URL=${{ secrets.SEARXNG }},ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }},HASURA_ADMIN_SECRET=${{ secrets.HASURA_ADMIN_SECRET }},HASURA_ENDPOINT=${{ secrets.HASURA_ENDPOINT }}'
+          workflow_ids: '118'
+          docker_image: ${{ env.REGISTRY }}/backend:${{ env.SHORT_SHA }}
+          devtron_cli_token: ${{ secrets.DEVTRON_TOKEN }}
