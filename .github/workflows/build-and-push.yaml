@@ -61,7 +61,7 @@ jobs:
           build_context: .
           dockerfile_path: ./app.dockerfile
           image_tags: ${{ env.REGISTRY }}/frontend:${{ env.SHORT_SHA }}
-          build-args: 'NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}'
+          build_args: 'NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}'
 
   build-backend:
     name: Build Backend
@@ -87,7 +87,7 @@ jobs:
           build_context: .
           dockerfile_path: ./backend.dockerfile
           image_tags: ${{ env.REGISTRY }}/backend:${{ env.SHORT_SHA }}
-          build-args: 'ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }},HASURA_ADMIN_SECRET=${{ secrets.HASURA_ADMIN_SECRET }},HASURA_ENDPOINT=${{ secrets.HASURA_ENDPOINT }}'
+          build_args: 'ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }},HASURA_ADMIN_SECRET=${{ secrets.HASURA_ADMIN_SECRET }},HASURA_ENDPOINT=${{ secrets.HASURA_ENDPOINT }}'
 
   approve-deployment:
     name: Approve Deployment
