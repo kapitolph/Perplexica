@@ -92,6 +92,7 @@ jobs:
           image_tags: ${{ env.REGISTRY }}/frontend:${{ env.SHORT_SHA }}
           build_args: |
             NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_WS_URL=${{ secrets.NEXT_PUBLIC_WS_URL }}
 
   approve-deployment:
     name: Approve Deployment
