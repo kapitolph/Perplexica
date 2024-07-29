@@ -97,7 +97,7 @@ jobs:
 
   deploy-backend:
     name: Deploy Perplexica Backend
-    needs: [generate-short-sha]
+    needs: [build-backend, generate-short-sha]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -115,7 +115,7 @@ jobs:
 
   deploy-frontend:
     name: Deploy Perplexica Frontend
-    needs: [generate-short-sha]
+    needs: [build-frontend, generate-short-sha]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
