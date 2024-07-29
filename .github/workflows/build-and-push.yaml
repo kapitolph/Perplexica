@@ -90,13 +90,13 @@ jobs:
           build-args: 'ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }},HASURA_ADMIN_SECRET=${{ secrets.HASURA_ADMIN_SECRET }},HASURA_ENDPOINT=${{ secrets.HASURA_ENDPOINT }}'
 
 approve-deployment:
-    name: Approve Deployment
-    needs: [build-backend]
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - run: |
-          echo "DEPLOYMENT TO PRODUCTION APPROVED"
+  name: Approve Deployment
+  needs: [build-backend]
+  runs-on: ubuntu-latest
+  environment: production
+  steps:
+    - run: |
+        echo "DEPLOYMENT TO PRODUCTION APPROVED"
 
 deploy-backend:
   name: Deploy Perplexica Backend
