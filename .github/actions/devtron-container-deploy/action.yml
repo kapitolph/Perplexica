@@ -1,0 +1,31 @@
+name: Deploy Container to Devtron
+description: This action will trigger deployment of a container to Devtron
+author: Kapitol
+inputs:
+  devtron_cli_token:
+    description: Devtron CLI Access Token
+    required: true
+  docker_image:
+    description: Docker Image
+    required: true
+  workflow_ids:
+    description: Devtron Workflow IDs (comma-separated)
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Deploy Container to Devtron
+      run: |
+        IFS=',' read -ra WORKFLOW_IDS <<< "${{ inputs.workflow_ids }}"
+        for WORKFLOW_ID in "${WORKFLOW_IDS[@]}"; do
+          echo "Deploying to Devtron Workflow ID: $WORKFLOW_ID"
+          curl --silent --location --request POST \
+          "https://devtron-internal.kapitol.io/orchestrator/webhook/ext-ci/${WORKFLOW_ID}" \
+          --header 'Content-Type: application/json' \
+          --header "api-token: ${{ inputs.devtron_cli_token }}" \
+          --data-raw '{
+            "dockerImage": "${{ inputs.docker_image }}"
+          }'
+          echo -e "\nDeployment to Devtron Workflow ID: $WORKFLOW_ID complete"
+        done
+      shell: bash

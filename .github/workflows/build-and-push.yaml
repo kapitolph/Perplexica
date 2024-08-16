@@ -1,0 +1,131 @@
+name: Build Perplexica Servers
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - 'app.dockerfile'
+      - 'backend.dockerfile'
+      - 'tsconfig.json'
+      - 'config.toml'
+      - 'drizzle.config.ts'
+      - 'package.json'
+      - 'yarn.lock'
+      - 'src/**'
+      - 'ui/**'
+      - '.github/**'
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: perplexica-build
+  cancel-in-progress: true
+
+jobs:
+  generate-short-sha:
+    name: Generate Short SHA
+    runs-on: ubuntu-latest
+    outputs:
+      short_sha: ${{ env.SHORT_SHA }}
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+      - name: Generate short sha
+        uses: ./.github/actions/generate-short-sha
+
+  build-backend:
+    name: Build Backend
+    needs: [generate-short-sha]
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    env:
+      REGISTRY: 'ghcr.io/kapitolph/perplexica'
+      SERVICE_ACCOUNT_USERNAME: ${{ vars.SERVICE_ACCOUNT_USERNAME }}
+      REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+      SHORT_SHA: ${{ needs.generate-short-sha.outputs.short_sha }}
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+      - name: Build backend
+        uses: ./.github/actions/docker-build
+        with:
+          depot_project_id: ${{ vars.DEPOT_PROJECT_ID }}
+          build_context: .
+          dockerfile_path: ./backend.dockerfile
+          image_tags: ${{ env.REGISTRY }}/backend:${{ env.SHORT_SHA }}
+          build_args: |
+              "ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}"
+              "HASURA_ADMIN_SECRET=${{ secrets.HASURA_ADMIN_SECRET }}"
+              "HASURA_ENDPOINT=${{ secrets.HASURA_ENDPOINT }}"
+
+  build-frontend:
+    name: Build Frontend
+    needs: [generate-short-sha]
+    environment: production
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    env:
+      REGISTRY: 'ghcr.io/kapitolph/perplexica'
+      SERVICE_ACCOUNT_USERNAME: ${{ vars.SERVICE_ACCOUNT_USERNAME }}
+      REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+      SHORT_SHA: ${{ needs.generate-short-sha.outputs.short_sha }}
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+      - name: Build frontend
+        uses: ./.github/actions/docker-build
+        with:
+          depot_project_id: ${{ vars.DEPOT_PROJECT_ID }}
+          build_context: .
+          dockerfile_path: ./app.dockerfile
+          image_tags: ${{ env.REGISTRY }}/frontend:${{ env.SHORT_SHA }}
+          build_args: |
+              "NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}"
+              "NEXT_PUBLIC_WS_URL=${{ secrets.NEXT_PUBLIC_WS_URL }}"
+
+  deploy-backend:
+    name: Deploy Perplexica Backend
+    needs: [build-backend, generate-short-sha]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      REGISTRY: 'ghcr.io/kapitolph/perplexica'
+      SHORT_SHA: ${{ needs.generate-short-sha.outputs.short_sha }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Deploy Perplexica Backend
+        uses: ./.github/actions/devtron-container-deploy
+        with:
+          workflow_ids: '118'
+          docker_image: ${{ env.REGISTRY }}/backend:${{ env.SHORT_SHA }}
+          devtron_cli_token: ${{ secrets.DEVTRON_TOKEN }}
+
+  deploy-frontend:
+    name: Deploy Perplexica Frontend
+    needs: [build-frontend, generate-short-sha]
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY: 'ghcr.io/kapitolph/perplexica'
+      SHORT_SHA: ${{ needs.generate-short-sha.outputs.short_sha }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Deploy Perplexica Frontend
+        uses: ./.github/actions/devtron-container-deploy
+        with:
+          workflow_ids: '119'
+          docker_image: ${{ env.REGISTRY }}/frontend:${{ env.SHORT_SHA }}
+          devtron_cli_token: ${{ secrets.DEVTRON_TOKEN }}

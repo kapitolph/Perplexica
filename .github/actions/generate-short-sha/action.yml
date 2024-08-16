@@ -1,0 +1,14 @@
+name: Generate short sha
+description: This action will generate a short sha from the commit sha and export it to GITHUB_ENV
+author: Kapitol
+inputs: 
+  commit_sha:
+    description:  Commit sha
+    default: ${{ github.sha }}
+    required: false
+runs:
+  using: "composite"
+  steps:
+    - name: Generate short sha
+      run: echo "SHORT_SHA=`echo ${{ inputs.commit_sha }} | cut -c1-8`" >> $GITHUB_ENV
+      shell: bash
